@@ -30,6 +30,11 @@ jobs:
       - name: Install wrangler
         run: npm install -g wrangler
 
+      - name: Configure Wrangler
+        run: |
+           echo "account_id = \"$CF_ACCOUNT_ID\"" >> wrangler.toml
+    
+
       - name: Verify Cloudflare API Token
         run: |
           echo "Verifying Cloudflare API Token..."
@@ -38,11 +43,11 @@ jobs:
       - name: Check and Create D1 Database
         run: |
           set -x
-          DB_LIST=$(wrangler d1 list --json --account-id $CF_ACCOUNT_ID)
+          DB_LIST=$(wrangler d1 list --json )
           DB_ID=$(echo $DB_LIST | jq -r '.[] | select(.name == "web-archive") | .uuid')
 
           if [ -z "$DB_ID" ]; then
-            CREATE_OUTPUT=$(wrangler d1 create web-archive --account-id $CF_ACCOUNT_ID)
+            CREATE_OUTPUT=$(wrangler d1 create web-archive )
             DB_ID=$(echo "$CREATE_OUTPUT" | sed -n 's/.*database_id = "\([^"]*\)".*/\1/p')
           else
             echo "Found existing web-archive database"
@@ -59,23 +64,23 @@ jobs:
       - name: Apply D1 Migrations
         run: |
           cd dist/service
-          wrangler d1 migrations apply web-archive --remote --account-id $CF_ACCOUNT_ID
+          wrangler d1 migrations apply web-archive --remote
           rm -rf ./src/sql
 
       - name: Check and Create R2 Bucket
         run: |
-          BUCKET_LIST=$(wrangler r2 bucket list --account-id $CF_ACCOUNT_ID)
+          BUCKET_LIST=$(wrangler r2 bucket list)
           if echo "$BUCKET_LIST" | grep -q "web-archive"; then
             echo "Bucket already exists"
           else
             echo "Creating new bucket"
-            wrangler r2 bucket create web-archive --account-id $CF_ACCOUNT_ID
+            wrangler r2 bucket create web-archive
           fi
 
       - name: Create Pages project if not exists
         run: |
-          if ! wrangler pages project list --account-id $CF_ACCOUNT_ID | grep -q "web-archive"; then
-            wrangler pages project create web-archive --production-branch=main --account-id $CF_ACCOUNT_ID
+          if ! wrangler pages project list | grep -q "web-archive"; then
+            wrangler pages project create web-archive --production-branch=main
           fi
 
       - name: Deploy
